@@ -13,6 +13,7 @@ import ca.uhn.fhir.rest.gclient.ICriterion;
 import ca.uhn.fhir.rest.gclient.StringClientParam;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import ca.uhn.fhir.rest.server.exceptions.PreconditionFailedException;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.hl7.fhir.instance.model.api.IBaseCoding;
@@ -66,6 +67,7 @@ public class FhirIgConnector {
         this.hapiFhirUrl = hapiUrl;
         Objects.requireNonNull(this.hapiFhirUrl);
         client = ctx.newRestfulGenericClient(hapiFhirUrl);
+        //if (client.)
         this.capturing = new CapturingInterceptor();
         client.registerInterceptor(capturing);
         this.igPath = igOutPath;
@@ -94,7 +96,6 @@ public class FhirIgConnector {
 
     private void initializeResources() {
         List<ImplementationGuide.ImplementationGuideDefinitionResourceComponent> toRemove = new ArrayList<>();
-
         for (ImplementationGuide.ImplementationGuideDefinitionResourceComponent rc : implementationGuide.getDefinition().getResource()) {
             if (rc.hasExample()) {
                 examples.add(rc);
@@ -325,7 +326,8 @@ public class FhirIgConnector {
         try {
             return (Resource) xmlParser.parseResource(new FileInputStream(this.igPath.resolve(fileName).toFile()));
         } catch (ConfigurationException | DataFormatException | FileNotFoundException e) {
-            throw new PhenopacktIgUtilRuntimeException(e.getLocalizedMessage());
+            String msg = String.format("Could not read %s: %s", fileName, e.getMessage());
+            throw new PhenopacktIgUtilRuntimeException(msg);
         }
     }
 
@@ -369,93 +371,10 @@ public class FhirIgConnector {
     private void loadExamples() {
         List<ImplementationGuide.ImplementationGuideDefinitionResourceComponent> addedComponents = new ArrayList<>();
         for (ImplementationGuide.ImplementationGuideDefinitionResourceComponent rc : examples) {
-            String ref = rc.getReference().getReference();
-            String refProfile = rc.getName();//
-                  //  rc.getExampleCanonicalType().asStringValue();
-
-            String[] refParts = ref.split("/");
-            DomainResource example = (DomainResource) loadResource(refParts[0] + "-" + refParts[1] + ".xml");
-            LOGGER.info("Loading example: {}", example.getId());
-
-            // search if already loaded
-            DomainResource existing = null;
-            DomainResource existingGenerated = null;
-
-            TokenClientParam tokenParam = new TokenClientParam("_tag");
-            ICriterion<TokenClientParam> tokenCriterion = tokenParam.exactly().systemAndCode(ID_TAG_IRI, ref);
-            Bundle bundle = (Bundle) this.client.search().forResource(example.getClass()).and(tokenCriterion).execute();
-
-            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                DomainResource resource = (DomainResource) entry.getResource();
-                if (resource.getMeta().getTag(TAG_URI, TAG_GENERATED) != null) {
-                    existingGenerated = resource;
-                    LOGGER.info("Found existing generated: {}", existingGenerated.getId());
-                } else {
-                    existing = resource;
-                    LOGGER.info("Found existing: {}", existing.getId());
-                }
-            }
-
-            // create or update original
-            DomainResource updated = null;
-
-            // without profile first
-            DomainResource exampleCopy = example.copy();
-            tagResourceId(exampleCopy, example);
-            MethodOutcome methodOutcome = null;
-            boolean created = false;
-            if (existing != null) {
-                exampleCopy.setId(existing.getId());
-                methodOutcome = this.client.update().resource(exampleCopy).execute();
-            } else {
-                methodOutcome = this.client.create().resource(exampleCopy).execute();
-                created = true;
-            }
-            updated = (DomainResource) methodOutcome.getResource();
-            if (created) {
-                LOGGER.info("Created: " + updated.getId());
-            } else {
-                LOGGER.info("Updated: " + updated.getId());
-            }
-            checkOutcome((OperationOutcome) methodOutcome.getOperationOutcome());
-            rc.getReference().setReference(updated.getIdElement().asStringValue());
-
-            validate(updated, refProfile);
-
-            // if the example doesn't already have the profile, and we have a profile, we'll
-            // add another example instance with the profile
-            DomainResource updatedGenerated = null;
-            if (refProfile != null && !updated.getMeta().hasProfile(refProfile)) {
-                // we'll add the profile to .meta.profile and create/update
-                DomainResource generatedCopy = example.copy();
-                generatedCopy.getMeta().addProfile(refProfile);
-                generatedCopy.getMeta().addTag(TAG_URI, "generated", "generated");
-                tagResourceId(generatedCopy, example);
-                MethodOutcome mo = null;
-                if (existingGenerated != null) {
-                    generatedCopy.setId(existingGenerated.getId());
-                    mo = this.client.update().resource(generatedCopy).execute();
-                    LOGGER.info("Updated generated example: " + ((Resource) mo.getResource()).getId());
-                } else {
-                    mo = this.client.create().resource(generatedCopy).execute();
-                    LOGGER.info("Created generated example: " + ((Resource) mo.getResource()).getId());
-                }
-                checkOutcome((OperationOutcome) mo.getOperationOutcome());
-                generatedCopy = (DomainResource) mo.getResource();
-                Reference r = new Reference(generatedCopy);
-                ImplementationGuide.ImplementationGuideDefinitionResourceComponent rcGenerated =
-                        new ImplementationGuide.ImplementationGuideDefinitionResourceComponent();
-                rcGenerated.getReference().setReference(generatedCopy.getId());
-                rcGenerated.addExtension(TAG_URI, new StringType("generated"));
-                addedComponents.add(rcGenerated);
-
-            } else {
-                // skip but delete any existing generated instance from the past.
-                if (existingGenerated != null) {
-                    LOGGER.info("Deleting no longer needed existing generated example: " + existingGenerated.getId());
-                    MethodOutcome execute = this.client.delete().resource(existingGenerated).execute();
-                    checkOutcome((OperationOutcome) execute.getOperationOutcome());
-                }
+            try {
+                addOneExample(rc);
+            } catch (ResourceNotFoundException rnfe) {
+                LOGGER.error("Could not find resource for {}: {}", rc.getName(), rnfe.getMessage());
             }
 
             // //
@@ -479,8 +398,107 @@ public class FhirIgConnector {
         }
 
         implementationGuide.getDefinition().getResource().addAll(addedComponents);
+    }
+
+
+    private void addOneExample(ImplementationGuide.ImplementationGuideDefinitionResourceComponent rc)
+    throws ResourceNotFoundException {
+        List<ImplementationGuide.ImplementationGuideDefinitionResourceComponent> addedComponents = new ArrayList<>();
+        String ref = rc.getReference().getReference();
+        String refProfile = rc.getName();//
+        //  rc.getExampleCanonicalType().asStringValue();
+
+        String[] refParts = ref.split("/");
+        DomainResource example = (DomainResource) loadResource(refParts[0] + "-" + refParts[1] + ".xml");
+        LOGGER.info("Loading example: {}", example.getId());
+
+        // search if already loaded
+        DomainResource existing = null;
+        DomainResource existingGenerated = null;
+
+        TokenClientParam tokenParam = new TokenClientParam("_tag");
+        ICriterion<TokenClientParam> tokenCriterion = tokenParam.exactly().systemAndCode(ID_TAG_IRI, ref);
+
+            Bundle bundle = (Bundle) this.client.search().forResource(example.getClass()).and(tokenCriterion).execute();
+
+            for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                DomainResource resource = (DomainResource) entry.getResource();
+                if (resource.getMeta().getTag(TAG_URI, TAG_GENERATED) != null) {
+                    existingGenerated = resource;
+                    LOGGER.info("Found existing generated: {}", existingGenerated.getId());
+                } else {
+                    existing = resource;
+                    LOGGER.info("Found existing: {}", existing.getId());
+                }
+            }
+
+
+        // create or update original
+        DomainResource updated = null;
+
+        // without profile first
+        DomainResource exampleCopy = example.copy();
+        tagResourceId(exampleCopy, example);
+        MethodOutcome methodOutcome = null;
+        boolean created = false;
+        if (existing != null) {
+            exampleCopy.setId(existing.getId());
+            methodOutcome = this.client.update().resource(exampleCopy).execute();
+        } else {
+            methodOutcome = this.client.create().resource(exampleCopy).execute();
+            created = true;
+        }
+        updated = (DomainResource) methodOutcome.getResource();
+        if (created) {
+            LOGGER.info("Created: " + updated.getId());
+        } else {
+            LOGGER.info("Updated: " + updated.getId());
+        }
+        checkOutcome((OperationOutcome) methodOutcome.getOperationOutcome());
+        rc.getReference().setReference(updated.getIdElement().asStringValue());
+
+        validate(updated, refProfile);
+
+        // if the example doesn't already have the profile, and we have a profile, we'll
+        // add another example instance with the profile
+        DomainResource updatedGenerated = null;
+        if (refProfile != null && !updated.getMeta().hasProfile(refProfile)) {
+            // we'll add the profile to .meta.profile and create/update
+            DomainResource generatedCopy = example.copy();
+            generatedCopy.getMeta().addProfile(refProfile);
+            generatedCopy.getMeta().addTag(TAG_URI, "generated", "generated");
+            tagResourceId(generatedCopy, example);
+            MethodOutcome mo = null;
+            if (existingGenerated != null) {
+                generatedCopy.setId(existingGenerated.getId());
+                mo = this.client.update().resource(generatedCopy).execute();
+                LOGGER.info("Updated generated example: " + ((Resource) mo.getResource()).getId());
+            } else {
+                mo = this.client.create().resource(generatedCopy).execute();
+                LOGGER.info("Created generated example: " + ((Resource) mo.getResource()).getId());
+            }
+            checkOutcome((OperationOutcome) mo.getOperationOutcome());
+            generatedCopy = (DomainResource) mo.getResource();
+            Reference r = new Reference(generatedCopy);
+            ImplementationGuide.ImplementationGuideDefinitionResourceComponent rcGenerated =
+                    new ImplementationGuide.ImplementationGuideDefinitionResourceComponent();
+            rcGenerated.getReference().setReference(generatedCopy.getId());
+            rcGenerated.addExtension(TAG_URI, new StringType("generated"));
+            addedComponents.add(rcGenerated);
+
+        } else {
+            // skip but delete any existing generated instance from the past.
+            if (existingGenerated != null) {
+                LOGGER.info("Deleting no longer needed existing generated example: " + existingGenerated.getId());
+                MethodOutcome execute = this.client.delete().resource(existingGenerated).execute();
+                checkOutcome((OperationOutcome) execute.getOperationOutcome());
+            }
+        }
 
     }
+
+
+
 
     public String logRequest() {
         String request = getRequest();
