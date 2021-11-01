@@ -4,11 +4,10 @@ public class PingCommand extends IgCommand {
 
 
 
-
     @Override
-    public Integer call() throws Exception {
+    public void run() {
         System.out.println("ping: " + hapiFhirUrl);
         setupFhirClient();
-        return 0;
+
     }
 }
