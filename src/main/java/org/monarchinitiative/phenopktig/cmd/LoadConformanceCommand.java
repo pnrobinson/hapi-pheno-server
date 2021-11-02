@@ -34,6 +34,7 @@ public class LoadConformanceCommand extends IgCommand {
         try {
             BufferedWriter stdout = new BufferedWriter(new OutputStreamWriter(System.out));
             connector.printStatus(stdout);
+            stdout.close();
         } catch (IOException e) {
             e.printStackTrace();
         }

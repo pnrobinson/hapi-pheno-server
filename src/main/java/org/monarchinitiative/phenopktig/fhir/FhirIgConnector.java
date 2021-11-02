@@ -67,7 +67,6 @@ public class FhirIgConnector {
         this.hapiFhirUrl = hapiUrl;
         Objects.requireNonNull(this.hapiFhirUrl);
         client = ctx.newRestfulGenericClient(hapiFhirUrl);
-        //if (client.)
         this.capturing = new CapturingInterceptor();
         client.registerInterceptor(capturing);
         this.igPath = igOutPath;
@@ -77,9 +76,21 @@ public class FhirIgConnector {
     }
 
 
+    /**
+     * Print out some data about this IG
+     * @param writer file handle
+     * @throws IOException if we cannot write to the file handle
+     */
     public void printStatus(Writer writer) throws IOException {
-        writer.write("[INFO] HAPI FHIR URL: " + this.hapiFhirUrl);
-        writer.write("HELLO");
+        writer.write("[INFO] HAPI FHIR URL: " + this.hapiFhirUrl + "\n");
+        writer.write("[INFO] Implementation guide: " + implementationGuide.getName() + "\n");
+        writer.write("[INFO] " + examples.size() + " examples.\n");
+        for (var ex : examples) {
+            writer.write("[INFO]\t\t" + ex.getName() + "\n");
+        }
+        writer.write("[INFO] " + implementationGuide.getDescription() + "\n");
+        writer.write("[INFO] version: " + implementationGuide.getVersion() + "\n");
+
     }
 
 
@@ -375,6 +386,8 @@ public class FhirIgConnector {
                 addOneExample(rc);
             } catch (ResourceNotFoundException rnfe) {
                 LOGGER.error("Could not find resource for {}: {}", rc.getName(), rnfe.getMessage());
+            } catch (PhenopacktIgUtilRuntimeException e) {
+                LOGGER.error("Other exception: {}", e.getMessage());
             }
 
             // //
