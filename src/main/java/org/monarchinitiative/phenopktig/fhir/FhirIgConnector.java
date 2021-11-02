@@ -44,7 +44,7 @@ public class FhirIgConnector {
 
     private final IParser jsonParser;
 
-    private IGenericClient client = null;
+    private IGenericClient client;
 
     private final ObjectMapper objectMapper =  new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -76,22 +76,7 @@ public class FhirIgConnector {
     }
 
 
-    /**
-     * Print out some data about this IG
-     * @param writer file handle
-     * @throws IOException if we cannot write to the file handle
-     */
-    public void printStatus(Writer writer) throws IOException {
-        writer.write("[INFO] HAPI FHIR URL: " + this.hapiFhirUrl + "\n");
-        writer.write("[INFO] Implementation guide: " + implementationGuide.getName() + "\n");
-        writer.write("[INFO] " + examples.size() + " examples.\n");
-        for (var ex : examples) {
-            writer.write("[INFO]\t\t" + ex.getName() + "\n");
-        }
-        writer.write("[INFO] " + implementationGuide.getDescription() + "\n");
-        writer.write("[INFO] version: " + implementationGuide.getVersion() + "\n");
 
-    }
 
 
     private ValueSet expandValueSet(ValueSet vs) {
@@ -208,7 +193,7 @@ public class FhirIgConnector {
         logRequest();
         logResponse();
 
-        MethodOutcome mo = null;
+        MethodOutcome mo;
 
         if (existingResource == null) {
             LOGGER.info("Creating resource...");
@@ -250,11 +235,11 @@ public class FhirIgConnector {
             for (OperationOutcome.OperationOutcomeIssueComponent issue : outcome.getIssue()) {
                 StringBuilder sb = new StringBuilder();
                 OperationOutcome.IssueSeverity severity = issue.getSeverity();
-                sb.append("Severity:" + severity);
-                sb.append(", Code:" + issue.getCode());
-                sb.append(", Details:" + issue.getDetails().getText());
-                sb.append(", Location:" + issue.getLocation());
-                sb.append(", Diagnositc:" + issue.getDiagnostics());
+                sb.append("Severity:").append(severity);
+                sb.append(", Code:").append(issue.getCode());
+                sb.append(", Details:").append(issue.getDetails().getText());
+                sb.append(", Location:").append(issue.getLocation());
+                sb.append(", Diagnositc:").append(issue.getDiagnostics());
                 issues.get(severity).add(sb.toString());
             }
         }
@@ -331,7 +316,7 @@ public class FhirIgConnector {
 
     /**
      * @param fileName is relative to the IG output directory.
-     * @return
+     * @return the FHIR resource loaded from the file
      */
     public Resource loadResource(String fileName) {
         try {
@@ -353,8 +338,8 @@ public class FhirIgConnector {
         if (profile != null) {
             params.addParameter("profile", profile);
         }
-        MethodOutcome methodOutcome = null;
-        OperationOutcome operationOutcome = null;
+        MethodOutcome methodOutcome;
+        OperationOutcome operationOutcome;
         try {
             methodOutcome = this.client.operation().onInstance(resource.getId()).named("$validate")
                     .withParameters(params).returnMethodOutcome().execute();
@@ -416,7 +401,6 @@ public class FhirIgConnector {
 
     private void addOneExample(ImplementationGuide.ImplementationGuideDefinitionResourceComponent rc)
     throws ResourceNotFoundException {
-        List<ImplementationGuide.ImplementationGuideDefinitionResourceComponent> addedComponents = new ArrayList<>();
         String ref = rc.getReference().getReference();
         String refProfile = rc.getName();//
         //  rc.getExampleCanonicalType().asStringValue();
@@ -447,12 +431,12 @@ public class FhirIgConnector {
 
 
         // create or update original
-        DomainResource updated = null;
+        DomainResource updated;
 
         // without profile first
         DomainResource exampleCopy = example.copy();
         tagResourceId(exampleCopy, example);
-        MethodOutcome methodOutcome = null;
+        MethodOutcome methodOutcome;
         boolean created = false;
         if (existing != null) {
             exampleCopy.setId(existing.getId());
@@ -481,7 +465,7 @@ public class FhirIgConnector {
             generatedCopy.getMeta().addProfile(refProfile);
             generatedCopy.getMeta().addTag(TAG_URI, "generated", "generated");
             tagResourceId(generatedCopy, example);
-            MethodOutcome mo = null;
+            MethodOutcome mo;
             if (existingGenerated != null) {
                 generatedCopy.setId(existingGenerated.getId());
                 mo = this.client.update().resource(generatedCopy).execute();
@@ -492,13 +476,11 @@ public class FhirIgConnector {
             }
             checkOutcome((OperationOutcome) mo.getOperationOutcome());
             generatedCopy = (DomainResource) mo.getResource();
-            Reference r = new Reference(generatedCopy);
+           // Reference r = new Reference(generatedCopy);
             ImplementationGuide.ImplementationGuideDefinitionResourceComponent rcGenerated =
                     new ImplementationGuide.ImplementationGuideDefinitionResourceComponent();
             rcGenerated.getReference().setReference(generatedCopy.getId());
             rcGenerated.addExtension(TAG_URI, new StringType("generated"));
-            addedComponents.add(rcGenerated);
-
         } else {
             // skip but delete any existing generated instance from the past.
             if (existingGenerated != null) {
@@ -507,7 +489,6 @@ public class FhirIgConnector {
                 checkOutcome((OperationOutcome) execute.getOperationOutcome());
             }
         }
-
     }
 
 
@@ -520,22 +501,21 @@ public class FhirIgConnector {
     }
 
     public  String getRequest() {
-        String sb = getRequestMethod() + "\n" +
+        return getRequestMethod() + "\n" +
                 getRequestHeaders() + "\n" +
                 getRequestBody() + "\n";
-        return sb;
     }
 
     public String getRequestMethod() {
         ApacheHttpRequest request = (ApacheHttpRequest) getCapturing().getLastRequest();
         StringBuilder sb = new StringBuilder();
-        sb.append(request.getHttpVerbName() + " ");
+        sb.append(request.getHttpVerbName()).append(" ");
         try {
             sb.append(URLDecoder.decode(request.getUri(), StandardCharsets.UTF_8.toString()));
         } catch (UnsupportedEncodingException e) {
             throw new PhenopacktIgUtilRuntimeException(e.getMessage());
         }
-        sb.append(" " + request.getApacheRequest().getProtocolVersion());
+        sb.append(" ").append(request.getApacheRequest().getProtocolVersion());
         return sb.toString();
     }
 
@@ -547,7 +527,7 @@ public class FhirIgConnector {
         ApacheHttpRequest request = (ApacheHttpRequest) getCapturing().getLastRequest();
         StringBuilder sb = new StringBuilder();
         for (String header : request.getAllHeaders().keySet()) {
-            sb.append(header + ": " + request.getAllHeaders().get(header) + "\n");
+            sb.append(header).append(": ").append(request.getAllHeaders().get(header)).append("\n");
         }
         return sb.toString();
     }
@@ -555,7 +535,7 @@ public class FhirIgConnector {
     public String getRequestBody() {
         ApacheHttpRequest request = (ApacheHttpRequest) getCapturing().getLastRequest();
         StringBuilder sb = new StringBuilder();
-        String bodyFromStream = null;
+        String bodyFromStream;
         try {
             bodyFromStream = request.getRequestBodyFromStream();
             if (bodyFromStream == null) {
@@ -579,10 +559,9 @@ public class FhirIgConnector {
     }
 
     public String getResponse() {
-        String sb = getResponseStatus() + "\n" +
+        return getResponseStatus() + "\n" +
                 getResponseHeaders() + "\n" +
                 getResponseBody() + "\n";
-        return sb;
     }
 
     public String getResponseStatus( ) {
@@ -594,7 +573,7 @@ public class FhirIgConnector {
         ApacheHttpResponse response = (ApacheHttpResponse) getCapturing().getLastResponse();
         StringBuilder sb = new StringBuilder();
         for (String header : response.getAllHeaders().keySet()) {
-            sb.append(header + ": " + response.getAllHeaders().get(header) + "\n");
+            sb.append(header).append(": ").append(response.getAllHeaders().get(header)).append("\n");
         }
         return sb.toString();
     }
@@ -607,7 +586,6 @@ public class FhirIgConnector {
         } catch (IOException e) {
             throw new PhenopacktIgUtilRuntimeException(e.getMessage());
         }
-
         return sb.toString();
     }
 
@@ -626,6 +604,21 @@ public class FhirIgConnector {
         return builder.toString();
     }
 
+    /**
+     * Print out some data about this IG
+     * @param writer file handle
+     * @throws IOException if we cannot write to the file handle
+     */
+    public void printStatus(Writer writer) throws IOException {
+        writer.write("[INFO] HAPI FHIR URL: " + this.hapiFhirUrl + "\n");
+        writer.write("[INFO] Implementation guide: " + implementationGuide.getName() + "\n");
+        writer.write("[INFO] " + examples.size() + " examples.\n");
+        for (var ex : examples) {
+            writer.write("[INFO]\t\t" + ex.getName() + "\n");
+        }
+        writer.write("[INFO] " + implementationGuide.getDescription() + "\n");
+        writer.write("[INFO] version: " + implementationGuide.getVersion() + "\n");
 
+    }
 
 }

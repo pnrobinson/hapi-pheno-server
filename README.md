@@ -38,3 +38,10 @@ java -jar load phenopktig-util.jar
 --server http://localhost:8888/
 --ig-out <output>
 ```
+
+# Loading a Phenopacket
+See here for code
+https://github.com/phenopackets/core-ig/blob/vPreSushi/projects/ig-tools/src/main/java/org/phenopackets/coreig/tools/command/cl/ClinicalUsecase.java
+
+# Retrieving a Phenopacket and coding as GA4GH native phenopacket
+to do
