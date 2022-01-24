@@ -60,6 +60,11 @@ hapi:
     #        url: https://build.fhir.org/ig/HL7/fhir-ips/package.tgz
     #        name: hl7.fhir.uv.ips
     #        version: 1.0.0
+    implementationguides:
+      url: http://phenopackets.org/core-ig/package.tgz
+      name: hl7.fhir.phenopackets.core-ig
+      version: 1.0.0
+
     #    supported_resource_types:
     #      - Patient
     #      - Observation
