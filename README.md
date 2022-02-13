@@ -43,9 +43,9 @@ java -jar load phenopktig-util.jar
 --ig-out <output>
 ```
 
-# Loading a Phenopacket
-See here for code
-https://github.com/phenopackets/core-ig/blob/vPreSushi/projects/ig-tools/src/main/java/org/phenopackets/coreig/tools/command/cl/ClinicalUsecase.java
+# Examining the structure definitions
+
+http://localhost:8888/fhir/StructureDefinition
 
 # Retrieving a Phenopacket and coding as GA4GH native phenopacket
-to do
+This is done in the accompanying project 
