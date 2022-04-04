@@ -32,15 +32,16 @@ The server will then be accessible at http://localhost:8888/ and eg. http://loca
 
 # Loading the implementation guide
 
-First clone the [Phenopacket IG](https://github.com/phenopackets/core-ig) repository and
-build the IG locally (with the ``sushi`` command). This will create a new directory called ``output``.
-We then run the ``load`` command of this app as follows (note that if you use maven to build the app, the executable 
-jar file will be located in the ``target`` subdirectory).
+This is done simply by these lines in the ``application.yaml`` file, no additional work is required.
+
+See [core-ig](https://github.com/phenopackets/core-ig) for the original IG code.
 
 ```bazaar
-java -jar load phenopktig-util.jar
---server http://localhost:8888/
---ig-out <output>
+    implementationguides:
+      phenopackets:
+        url: http://phenopackets.org/core-ig/package.tgz
+        name: hl7.fhir.us.ga4gh.phenopacket
+        version: 0.1.0
 ```
 
 # Examining the structure definitions
@@ -48,4 +49,4 @@ java -jar load phenopktig-util.jar
 http://localhost:8888/fhir/StructureDefinition
 
 # Retrieving a Phenopacket and coding as GA4GH native phenopacket
-This is done in the accompanying project 
+This is done in the accompanying [hapi-pheno-client](https://github.com/pnrobinson/hapi-pheno-client/) project.
