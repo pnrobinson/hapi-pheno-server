@@ -25,12 +25,12 @@ spring:
   #      hibernate.cache.use_structured_entries: false
   #      hibernate.cache.use_minimal_puts: false
   ###    These settings will enable fulltext search with lucene
-  #      hibernate.search.enabled: true
-  #      hibernate.search.backend.type: lucene
-  #      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiLuceneAnalysisConfigurer
-  #      hibernate.search.backend.directory.type: local-filesystem
-  #      hibernate.search.backend.directory.root: target/lucenefiles
-  #      hibernate.search.backend.lucene_version: lucene_current
+      hibernate.search.enabled: true
+      hibernate.search.backend.type: lucene
+      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiLuceneAnalysisConfigurer
+      hibernate.search.backend.directory.type: local-filesystem
+      hibernate.search.backend.directory.root: target/lucenefiles
+      hibernate.search.backend.lucene_version: lucene_current
   batch:
     job:
       enabled: false
@@ -65,6 +65,10 @@ hapi:
         url: http://phenopackets.org/core-ig/package.tgz
         name: hl7.fhir.us.ga4gh.phenopacket
         version: 0.1.0
+      genomics-reporting:
+        url: http://hl7.org/fhir/uv/genomics-reporting/package.tgz
+        name: hl7.fhir.uv.genomics-reporting
+        version: 2.0.0
 
     #    supported_resource_types:
     #      - Patient

@@ -30,22 +30,42 @@ mvn -Djetty.port=8888 jetty:run
 
 The server will then be accessible at http://localhost:8888/ and eg. http://localhost:8888/fhir/metadata. 
 
-# Loading the implementation guide
+# Loading LOINC Code/Value sets
 
-First clone the [Phenopacket IG](https://github.com/phenopackets/core-ig) repository and
-build the IG locally (with the ``sushi`` command). This will create a new directory called ``output``.
-We then run the ``load`` command of this app as follows (note that if you use maven to build the app, the executable 
-jar file will be located in the ``target`` subdirectory).
+It is absolutely necessary to load LOINC data before running the Phenopackets example.
+To do so, download the latest ``Loinc_2.72.zip`` archive from the [LOINC website](https://loinc.org/).
+Then download the hapi-fhir CLI tool from the
+[HAPI Releases page](https://github.com/hapifhir/hapi-fhir/releases). Then
+run the following command (note that the -t command points to the 
+running server endpoint).
 
-```bazaar
-java -jar load phenopktig-util.jar
---server http://localhost:8888/
---ig-out <output>
+```aidl
+java -jar hapi-fhir-cli.jar upload-terminology \
+  -d Loinc_2.72.zip \
+  -v r4 \
+  -t http://localhost:8888/fhir \
+  -u http://loinc.org
 ```
+This will take roughly 30 minutes to complete.
+Note that we added the following to the ``Application.java`` class
+
+```aidl
+/**
+ * ERROR c.u.f.jpa.term.BaseTermReadSvcImpl [BaseTermReadSvcImpl.java:1796] Failed to pre-expand ValueSet: maxClauseCount is set to 1024
+ * org.apache.lucene.search.BooleanQuery$TooManyClauses: maxClauseCount is set to 1024
+ */
+int MAX_CLAUSE_COUNT = 10_000; // to avoid problems as above
+BooleanQuery.setMaxClauseCount(MAX_CLAUSE_COUNT);
+
+```
+It is also necessary to uncomment the ``#hibernate.search.enabled``
+and following lines in the application.yaml file (already done here).
+
+
 
 # Examining the structure definitions
 
 http://localhost:8888/fhir/StructureDefinition
 
 # Retrieving a Phenopacket and coding as GA4GH native phenopacket
-This is done in the accompanying project 
+See the accompanying project 

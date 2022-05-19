@@ -4,6 +4,7 @@ import ca.uhn.fhir.jpa.subscription.channel.config.SubscriptionChannelConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.SubscriptionProcessorConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.WebsocketDispatcherConfig;
 import ca.uhn.fhir.jpa.subscription.submit.config.SubscriptionSubmitterConfig;
+import org.apache.lucene.search.BooleanQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.SpringApplication;
@@ -53,7 +54,12 @@ public class Application extends SpringBootServletInitializer {
     servletRegistrationBean.setServlet(jpaRestfulServer);
     servletRegistrationBean.addUrlMappings("/fhir/*");
     servletRegistrationBean.setLoadOnStartup(1);
-
+    /**
+     * ERROR c.u.f.jpa.term.BaseTermReadSvcImpl [BaseTermReadSvcImpl.java:1796] Failed to pre-expand ValueSet: maxClauseCount is set to 1024
+     * org.apache.lucene.search.BooleanQuery$TooManyClauses: maxClauseCount is set to 1024
+     */
+    int MAX_CLAUSE_COUNT = 10_000; // to avoid problems as above
+    BooleanQuery.setMaxClauseCount(MAX_CLAUSE_COUNT);
     return servletRegistrationBean;
   }
 
