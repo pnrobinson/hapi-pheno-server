@@ -64,11 +64,11 @@ hapi:
       phenopackets:
         url: http://phenopackets.org/core-ig/package.tgz
         name: hl7.fhir.us.ga4gh.phenopacket
-        version: 0.1.0
-      genomics-reporting:
-        url: http://hl7.org/fhir/uv/genomics-reporting/package.tgz
-        name: hl7.fhir.uv.genomics-reporting
-        version: 2.0.0
+        version: 0.1.1
+#      genomics-reporting:
+#        url: http://hl7.org/fhir/uv/genomics-reporting/package.tgz
+#        name: hl7.fhir.uv.genomics-reporting
+#        version: 1.0.0
 
     #    supported_resource_types:
     #      - Patient
@@ -137,8 +137,8 @@ hapi:
         refuse_to_fetch_third_party_urls: false
         fhir_version: R4
     validation:
-      requests_enabled: true
-      responses_enabled: true
+      requests_enabled: false
+      responses_enabled: false
 #    binary_storage_enabled: true
 #    bulk_export_enabled: true
 #    subscription:
